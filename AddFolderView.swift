@@ -187,23 +187,51 @@ struct AddFolderView: View {
             
             SecureBookmark.shared.storeBookmark(id: folderId.uuidString, data: bookmarkData)
             
+            // Calculate actual size in bytes for storage
+            var totalSizeBytes: Int64 = 0
+            if let size = ByteCountFormatter().byteCount(fromByteCount: Int64(fileCount > 0 ? Int64(estimatedSize.replacingOccurrences(of: ",", with: "")) : 0)) {
+                totalSizeBytes = size
+            }
+            
             let syncFolder = SyncFolder(
-                id: folderId,
-                name: folderName,
                 path: path.path,
                 bookmarkData: bookmarkData,
-                topicName: topicName,
-                isActive: true,
-                createdAt: Date(),
-                lastModified: Date(),
-                totalSize: estimatedSize,
-                fileCount: fileCount
+                displayName: folderName
+            )
+            syncFolder.id = folderId
+            syncFolder.topicName = topicName
+            syncFolder.totalBytes = totalSizeBytes
+            
+            modelContext.insert(syncFolder)
+            
+            // Create topic mapping with placeholder topicId (will be updated when topic is created)
+            let pathHash = computePathHash(path.path)
+            let topicMapping = TopicMapping(
+                topicId: 0, // Will be set when topic is created on Telegram
+                topicTitle: topicName,
+                syncFolder: syncFolder,
+                folderPathHash: pathHash
             )
             
-            let topicMapping = TopicMapping(
-                id: UUID(),
-                localFolderPath: path.path,
-                folderName: folderName,
-                topicName: topicName,
-                createdAt: Date(),
-                lastUpdated:
+            modelContext.insert(topicMapping)
+            syncFolder.topicMapping = topicMapping
+            
+            try modelContext.save()
+            
+            logger.info("Saved folder: \(folderName) with path: \(path.path)")
+            
+            dismiss()
+        } catch {
+            logger.error("Failed to save folder: \(error.localizedDescription)")
+            errorMessage = "Failed to save folder: \(error.localizedDescription)"
+            showError = true
+        }
+    }
+    
+    /// Compute a short hash of the folder path for unique topic naming
+    private func computePathHash(_ path: String) -> String {
+        let data = Data(path.utf8)
+        let hash = SHA256.hash(data: data)
+        return hash.compactMap { String(format: "%02x", $0) }.prefix(8).joined()
+    }
+}
