@@ -20,6 +20,7 @@ class SyncFolder {
     var bookmarkData: Data
     var displayName: String
     var createdAt: Date
+    var updatedAt: Date
     var isActive: Bool
     var lastEventId: UInt64
     var lastSyncDate: Date?
@@ -28,8 +29,11 @@ class SyncFolder {
     
     var totalBytes: Int64
     var processedBytes: Int64
+    var fileCount: Int
     
     var topicName: String?
+    var dryRunEnabled: Bool
+    var chunkSizeMB: Int
     
     @Relationship(deleteRule: .cascade, inverse: \FileRecord.syncFolder)
     var fileRecords: [FileRecord] = []
@@ -37,18 +41,42 @@ class SyncFolder {
     @Relationship(deleteRule: .nullify)
     var topicMapping: TopicMapping?
     
-    init(path: String, bookmarkData: Data, displayName: String) {
-        self.id = UUID()
+    init(
+        id: UUID = UUID(),
+        path: String,
+        bookmarkData: Data,
+        displayName: String,
+        topicName: String? = nil,
+        totalBytes: Int64 = 0,
+        processedBytes: Int64 = 0,
+        fileCount: Int = 0,
+        dryRunEnabled: Bool = false,
+        chunkSizeMB: Int = 700,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date(),
+        isActive: Bool = true,
+        lastEventId: UInt64 = UInt64.max,
+        lastSyncDate: Date? = nil,
+        syncStatus: SyncStatus = .pending,
+        errorMessage: String? = nil
+    ) {
+        self.id = id
         self.path = path
         self.bookmarkData = bookmarkData
         self.displayName = displayName
-        self.createdAt = Date()
-        self.isActive = true
-        self.lastEventId = UInt64.max
-        self.syncStatus = .pending
-        self.totalBytes = 0
-        self.processedBytes = 0
-        self.topicName = nil
+        self.topicName = topicName
+        self.totalBytes = totalBytes
+        self.processedBytes = processedBytes
+        self.fileCount = fileCount
+        self.dryRunEnabled = dryRunEnabled
+        self.chunkSizeMB = chunkSizeMB
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.isActive = isActive
+        self.lastEventId = lastEventId
+        self.lastSyncDate = lastSyncDate
+        self.syncStatus = syncStatus
+        self.errorMessage = errorMessage
     }
     
     var resolvedURL: URL? {
@@ -74,5 +102,10 @@ class SyncFolder {
     
     var folderName: String {
         URL(fileURLWithPath: path).lastPathComponent
+    }
+    
+    func updateProgress(processed: Int64) {
+        processedBytes = processed
+        updatedAt = Date()
     }
 }
