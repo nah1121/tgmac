@@ -6,6 +6,7 @@ final class TopicMapping {
     @Attribute(.unique) var topicId: Int64
     var topicTitle: String
     var folderPathHash: String?
+    var forumChatId: Int64?
     var createdAt: Date
     var updatedAt: Date
     var lastMessageId: Int64?
@@ -15,13 +16,23 @@ final class TopicMapping {
     var totalChunks: Int32
     var uploadedChunks: Int32
     var lastError: String?
+    var keyVersion: Int
     
     @Relationship(inverse: \SyncFolder.topicMapping) var syncFolder: SyncFolder?
     
-    init(topicId: Int64, topicTitle: String, syncFolder: SyncFolder? = nil, folderPathHash: String? = nil, iconColor: Int32? = nil) {
+    init(
+        topicId: Int64,
+        topicTitle: String,
+        syncFolder: SyncFolder? = nil,
+        forumChatId: Int64? = nil,
+        folderPathHash: String? = nil,
+        iconColor: Int32? = nil,
+        keyVersion: Int = 1
+    ) {
         self.topicId = topicId
         self.topicTitle = topicTitle
         self.syncFolder = syncFolder
+        self.forumChatId = forumChatId
         self.folderPathHash = folderPathHash
         self.iconColor = iconColor
         self.createdAt = Date()
@@ -29,6 +40,7 @@ final class TopicMapping {
         self.isActive = true
         self.totalChunks = 0
         self.uploadedChunks = 0
+        self.keyVersion = keyVersion
     }
     
     var progress: Double {

@@ -8,15 +8,16 @@ struct AddFolderView: View {
     @Environment(\.dismiss) private var dismiss
     
     private let logger = Logger(subsystem: "com.backupbot.app", category: "AddFolder")
+    private let topicGenerator = TopicNameGenerator()
     
     @State private var folderName: String = ""
     @State private var selectedPath: URL?
     @State private var topicName: String = ""
     @State private var isSelectingFolder: Bool = false
     @State private var errorMessage: String?
-    @State private var showError: Bool = false
     @State private var estimatedSize: String = "Calculating..."
     @State private var fileCount: Int = 0
+    @State private var sizeBytes: Int64 = 0
     
     private var canSave: Bool {
         !folderName.isEmpty && selectedPath != nil && !topicName.isEmpty
@@ -62,7 +63,7 @@ struct AddFolderView: View {
                 }
                 
                 Section("Statistics") {
-                    if let path = selectedPath {
+                    if let _ = selectedPath {
                         HStack {
                             Label("Size", systemImage: "externaldrive")
                             Spacer()
@@ -168,6 +169,7 @@ struct AddFolderView: View {
             
             DispatchQueue.main.async {
                 self.fileCount = count
+                self.sizeBytes = size
                 self.estimatedSize = ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
             }
         }
@@ -184,26 +186,46 @@ struct AddFolderView: View {
             )
             
             let folderId = UUID()
-            
             SecureBookmark.shared.storeBookmark(id: folderId.uuidString, data: bookmarkData)
+            
+            let (hashedName, pathHash) = topicGenerator.hashedTopicName(
+                for: path.path,
+                displayName: topicName.isEmpty ? path.lastPathComponent : topicName
+            )
             
             let syncFolder = SyncFolder(
                 id: folderId,
-                name: folderName,
                 path: path.path,
                 bookmarkData: bookmarkData,
-                topicName: topicName,
-                isActive: true,
-                createdAt: Date(),
-                lastModified: Date(),
-                totalSize: estimatedSize,
-                fileCount: fileCount
+                displayName: folderName,
+                topicName: hashedName,
+                totalBytes: sizeBytes,
+                processedBytes: 0,
+                fileCount: fileCount,
+                dryRunEnabled: false,
+                chunkSizeMB: AppSettings.shared.defaultChunkSizeMB
             )
             
             let topicMapping = TopicMapping(
-                id: UUID(),
-                localFolderPath: path.path,
-                folderName: folderName,
-                topicName: topicName,
-                createdAt: Date(),
-                lastUpdated:
+                topicId: Int64(folderId.uuidString.hashValue),
+                topicTitle: hashedName,
+                syncFolder: syncFolder,
+                forumChatId: Int64(AppSettings.shared.forumChatId),
+                folderPathHash: pathHash,
+                iconColor: nil,
+                keyVersion: KeyManager.shared.currentKeyVersion()
+            )
+            
+            syncFolder.topicMapping = topicMapping
+            
+            modelContext.insert(syncFolder)
+            modelContext.insert(topicMapping)
+            try modelContext.save()
+            
+            dismiss()
+        } catch {
+            logger.error("Failed to save folder: \(error.localizedDescription, privacy: .public)")
+            errorMessage = "Could not save folder. \(error.localizedDescription)"
+        }
+    }
+}
