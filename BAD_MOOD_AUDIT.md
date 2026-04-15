@@ -9,9 +9,9 @@ This codebase talks like production software and behaves like a prototype wearin
 ## High Severity Findings
 
 1. **Build is currently broken in this environment**
-   - `swift test` fails immediately because the package imports `SwiftData`, which is unavailable in this Linux CI/container environment.
-   - Evidence: `file: <Package target or Swift source importing SwiftData>`, `symbol: <import/use site>`, `lines: <line range or permalink to failing import>`; reproduce with `swift test` in Linux CI/container.
-   - Impact: no test confidence and no reproducible CI gate outside macOS/Xcode.
+1. **Running `swift test` on Linux is unsupported for this package**
+   - The package declares macOS 14+ and imports macOS-only frameworks such as `SwiftData`/`SwiftUI`, so this codebase requires a macOS/Xcode environment for normal build and test execution.
+   - Impact: no reproducible CI/test gate outside macOS/Xcode unless platform-specific code is split or abstracted.
 
 2. **MTProto response routing is incorrect under concurrency**
    - Transport receives a message and resumes *all* pending continuations with the same payload instead of matching by message ID.
